@@ -38,11 +38,6 @@ El sistema gestiona roles complejos y flujos de trabajo estrictos:
 * Gestión global de usuarios y roles.
 * Control de categorías y reportes de ventas.
 
-## 🛠️ Tecnologías Utilizadas
-
-* **Backend:** ASP.NET Core / MVC (Arquitectura N-Capas).
-* **Frontend:** HTML5, CSS3 (Lumen Design System), JavaScript.
-* **Base de Datos:** SQL Server.
 
 ---
-*Proyecto desarrollado como parte de la asignatura de [Nombre de tu Materia] - 2026.*
+*Proyecto desarrollado como parte de la asignatura de Tecnico en ingenieria en desarrollo de software - 2026.*
