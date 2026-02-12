@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Libros - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo">
+                    <span class="L">L</span>umen.
+                </h1>
+            </a>
+            <nav class="nav"></nav>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <h2 class="section-title">Mi Biblioteca</h2>
+        <p style="color: rgba(255, 255, 255, 0.6); margin-bottom: 3rem;">
+            Todos los libros que has comprado, listos para leer o descargar.
+        </p>
+
+        <div id="biblioteca-grid" class="books-grid">
+            <!-- Se llena dinámicamente -->
+        </div>
+
+        <div id="biblioteca-vacia" class="biblioteca-vacia" style="display: none;">
+            <p>Aún no has comprado ningún libro.</p>
+            <a href="catalogo.html" class="btn btn-primary">Explorar catálogo</a>
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        // Requerir autenticación
+        auth.requireAuth('cliente');
+
+        const usuario = auth.getCurrentUser();
+        const compras = db.getComprasDeCliente(usuario.id);
+
+        if (compras.length === 0) {
+            document.getElementById('biblioteca-vacia').style.display = 'block';
+        } else {
+            const grid = document.getElementById('biblioteca-grid');
+
+            grid.innerHTML = compras.map(compra => {
+                const libro = db.getById('libros', compra.libroId);
+                const autor = db.getById('usuarios', libro.autorId);
+
+                return `
+                    <article class="library-card">
+                        <div class="book-cover">
+                            <div class="book-cover-placeholder">${libro.titulo.charAt(0)}</div>
+                        </div>
+                        <div class="library-info">
+                            <span class="book-category">${libro.categoria}</span>
+                            <h3 class="book-title">${libro.titulo}</h3>
+                            <p class="book-author">Por ${autor.nombre}</p>
+                            <p class="purchase-date">Comprado el ${formatDateShort(compra.fechaCompra)}</p>
+                            <div class="library-actions">
+                                <button class="btn btn-small btn-primary" onclick="leerLibro('${libro.id}')">
+                                    <span>Leer ahora</span>
+                                </button>
+                                <button class="btn btn-small btn-secondary" onclick="descargarLibro('${libro.id}')">
+                                    <span>Descargar</span>
+                                </button>
+                                <button class="btn btn-small btn-secondary" onclick="verFactura('${compra.id}')">
+                                    <span>Ver factura</span>
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        function leerLibro(libroId) {
+            const libro = db.getById('libros', libroId);
+            notify.info(`Abriendo "${libro.titulo}"...`);
+            // En producción, abriría un visor de PDF/EPUB
+            setTimeout(() => {
+                alert(`Modo lectura de "${libro.titulo}"\n\n(En producción, esto abriría un visor de libros electrónicos)`);
+            }, 500);
+        }
+
+        function descargarLibro(libroId) {
+            const libro = db.getById('libros', libroId);
+            notify.success(`Descargando "${libro.titulo}"...`);
+            // En producción, iniciaría la descarga del archivo
+            setTimeout(() => {
+                alert(`Descarga iniciada: ${libro.titulo}.epub\n\n(En producción, esto descargaría el archivo real)`);
+            }, 500);
+        }
+
+        function verFactura(compraId) {
+            const compra = db.getById('compras', compraId);
+            const factura = generarFactura(compra);
+
+            showModal('Factura de Compra', `
+                <div class="factura">
+                    <h4>Factura #${factura.numero}</h4>
+                    <p><strong>Fecha:</strong> ${factura.fecha}</p>
+                    <hr>
+                    <h5>Cliente</h5>
+                    <p>${factura.cliente.nombre}<br>
+                    ${factura.cliente.email}<br>
+                    RFC: ${factura.cliente.rfc}</p>
+                    <hr>
+                    <h5>Producto</h5>
+                    <p>${factura.libro.titulo}</p>
+                    <hr>
+                    <h5>Total</h5>
+                    <p style="font-size: 1.5rem; font-weight: bold;">${formatPrice(factura.total)}</p>
+                </div>
+            `);
+        }
+    </script>
+
+    <style>
+        .biblioteca-vacia {
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+
+        .biblioteca-vacia p {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 2rem;
+        }
+
+        .library-card {
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.5) 0%, rgba(0, 0, 0, 0.3) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .library-card:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .library-card .book-cover {
+            aspect-ratio: 3/4;
+        }
+
+        .purchase-date {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 1.5rem;
+        }
+
+        .library-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .factura {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .factura h4,
+        .factura h5 {
+            color: var(--color-white);
+            margin-bottom: 1rem;
+        }
+
+        .factura hr {
+            border: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 1.5rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .library-card {
+                grid-template-columns: 1fr;
+            }
+
+            .library-actions {
+                flex-direction: column;
+            }
+
+            .library-actions .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</body>
+
+</html>

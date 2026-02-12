@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Autor - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo"><span class="L">L</span>umen.</h1>
+            </a>
+            <nav class="nav"></nav>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <h2 class="section-title">Panel de Autor</h2>
+
+        <!-- Estadísticas -->
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <span class="stat-label">Manuscritos Pendientes</span>
+                <span class="stat-value" id="stat-pendientes">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Libros Publicados</span>
+                <span class="stat-value" id="stat-publicados">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Total de Ventas</span>
+                <span class="stat-value" id="stat-ventas">0</span>
+            </div>
+        </div>
+
+        <!-- Botón para subir manuscrito -->
+        <div style="margin: 2rem 0;">
+            <a href="subir-manuscrito.html" class="btn btn-primary">+ Subir Nuevo Manuscrito</a>
+        </div>
+
+        <!-- Manuscritos -->
+        <h3 style="margin: 3rem 0 1rem;">Mis Manuscritos</h3>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Categoría</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="manuscritos-tbody">
+                    <!-- Se llena dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Libros Publicados -->
+        <h3 style="margin: 3rem 0 1rem;">Mis Libros Publicados</h3>
+        <div id="libros-grid" class="books-grid">
+            <!-- Se llena dinámicamente -->
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        auth.requireAuth('autor');
+
+        const usuario = auth.getCurrentUser();
+        const manuscritos = db.getManuscritosDeAutor(usuario.id);
+        const libros = db.getLibrosDeAutor(usuario.id);
+
+        // Calcular estadísticas
+        document.getElementById('stat-pendientes').textContent =
+            manuscritos.filter(m => m.estado === 'pendiente').length;
+        document.getElementById('stat-publicados').textContent = libros.length;
+        document.getElementById('stat-ventas').textContent =
+            libros.reduce((sum, l) => sum + (l.ventas || 0), 0);
+
+        // Renderizar manuscritos
+        const tbody = document.getElementById('manuscritos-tbody');
+        if (manuscritos.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: rgba(255,255,255,0.5);">No has subido ningún manuscrito aún</td></tr>';
+        } else {
+            tbody.innerHTML = manuscritos.map(m => {
+                let badge = '';
+                if (m.estado === 'pendiente') badge = '<span class="badge badge-warning">Pendiente</span>';
+                else if (m.estado === 'aprobado') badge = '<span class="badge badge-success">Aprobado</span>';
+                else badge = '<span class="badge badge-danger">Rechazado</span>';
+
+                return `
+                    <tr>
+                        <td>${m.titulo}</td>
+                        <td>${m.categoria}</td>
+                        <td>${badge}</td>
+                        <td>${formatDateShort(m.fechaEnvio)}</td>
+                        <td>
+                            ${m.estado === 'rechazado' ?
+                        `<button class="btn btn-small btn-secondary" onclick="verRechazo('${m.id}')">Ver motivo</button>` :
+                        '<span style="color: rgba(255,255,255,0.4)">-</span>'}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Renderizar libros publicados
+        const librosGrid = document.getElementById('libros-grid');
+        if (libros.length === 0) {
+            librosGrid.innerHTML = '<p style="color: rgba(255,255,255,0.5); text-align:center;">Ningún libro publicado aún</p>';
+        } else {
+            librosGrid.innerHTML = libros.map(libro => `
+                <article class="book-card">
+                    <div class="book-cover">
+                        <div class="book-cover-placeholder">${libro.titulo.charAt(0)}</div>
+                    </div>
+                    <div class="book-info">
+                        <span class="book-category">${libro.categoria}</span>
+                        <h3 class="book-title">${libro.titulo}</h3>
+                        <p class="book-excerpt">${truncate(libro.sinopsis, 100)}</p>
+                        <div class="book-footer">
+                            <span class="book-price">${libro.ventas || 0} ventas</span>
+                            <a href="detalle-libro.html?id=${libro.id}" class="btn btn-small btn-secondary">Ver</a>
+                        </div>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function verRechazo(manuscritoId) {
+            const manuscrito = db.getById('manuscritos', manuscritoId);
+            showModal('Manuscrito Rechazado', `
+                <div>
+                    <h4>${manuscrito.titulo}</h4>
+                    <p style="margin: 1rem 0;"><strong>Motivo del rechazo:</strong></p>
+                    <p style="color: rgba(255,255,255,0.7); line-height: 1.6;">
+                        ${manuscrito.motivoRechazo || 'No se proporcionó un motivo específico.'}
+                    </p>
+                    <p style="margin-top: 2rem; color: rgba(255,255,255,0.6);">
+                        Puedes corregir tu manuscrito y enviarlo nuevamente.
+                    </p>
+                </div>
+            `);
+        }
+    </script>
+
+    <style>
+        .dashboard-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .stat-card {
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.5) 0%, rgba(0, 0, 0, 0.3) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 0.75rem;
+        }
+
+        .stat-value {
+            display: block;
+            font-family: var(--font-serif);
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--color-white);
+        }
+    </style>
+</body>
+
+</html>

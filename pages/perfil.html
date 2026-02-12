@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Perfil - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo"><span class="L">L</span>umen.</h1>
+            </a>
+            <nav class="nav"></nav>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <h2 class="section-title">Mi Perfil</h2>
+
+        <div class="profile-container">
+            <!-- Información del Usuario -->
+            <div class="profile-section">
+                <h3>Información Personal</h3>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label for="nombre">Nombre</label>
+                        <input type="text" id="nombre" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" disabled>
+                        <span class="form-help">El email no se puede cambiar</span>
+                    </div>
+
+                    <div class="form-group" id="biografia-group" style="display: none;">
+                        <label for="biografia">Biografía (para autores)</label>
+                        <textarea id="biografia"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tu rol: <strong id="rol-display"></strong></label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </form>
+            </div>
+
+            <!-- Solicitud para ser Autor -->
+            <div class="profile-section" id="solicitud-autor-section" style="display: none;">
+                <h3>¿Quieres publicar en Lumen?</h3>
+                <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 1.5rem;">
+                    Solicita convertirte en autor y comparte tus obras con nuestra comunidad.
+                </p>
+                <button class="btn btn-primary" onclick="solicitarSerAutor()">Solicitar ser Autor</button>
+            </div>
+
+            <!-- Estado de Solicitud -->
+            <div class="profile-section" id="estado-solicitud-section" style="display: none;">
+                <h3>Tu Solicitud para Autor</h3>
+                <div id="estado-solicitud-content"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        auth.requireAuth();
+
+        const usuario = auth.getCurrentUser();
+
+        // Rellenar formulario
+        document.getElementById('nombre').value = usuario.nombre;
+        document.getElementById('email').value = usuario.email;
+        document.getElementById('rol-display').textContent = usuario.rol;
+
+        // Mostrar biografía para autores
+        if (usuario.rol === 'autor') {
+            document.getElementById('biografia-group').style.display = 'block';
+            document.getElementById('biografia').value = usuario.biografia || '';
+        }
+
+        // Verificar solicitud de autor
+        if (usuario.rol === 'cliente') {
+            const solicitudes = db.getAll('solicitudesAutor').filter(s => s.usuarioId === usuario.id);
+
+            if (solicitudes.length === 0) {
+                document.getElementById('solicitud-autor-section').style.display = 'block';
+            } else {
+                const ultima = solicitudes[solicitudes.length - 1];
+                document.getElementById('estado-solicitud-section').style.display = 'block';
+
+                let badge = '';
+                let mensaje = '';
+
+                if (ultima.estado === 'pendiente') {
+                    badge = '<span class="badge badge-warning">Pendiente</span>';
+                    mensaje = 'Tu solicitud está siendo revisada por nuestro equipo.';
+                } else if (ultima.estado === 'aprobada') {
+                    badge = '<span class="badge badge-success">Aprobada</span>';
+                    mensaje = '¡Tu solicitud fue aprobada! Recarga la página para ver tu nuevo rol.';
+                } else {
+                    badge = '<span class="badge badge-danger">Rechazada</span>';
+                    mensaje = 'Tu solicitud fue rechazada. Puedes enviar una nueva solicitud.';
+                    document.getElementById('solicitud-autor-section').style.display = 'block';
+                }
+
+                document.getElementById('estado-solicitud-content').innerHTML = `
+                    ${badge}
+                    <p style="color: rgba(255, 255, 255, 0.7); margin-top: 1rem;">${mensaje}</p>
+                    <p style="color: rgba(255, 255, 255, 0.5); margin-top: 0.5rem;">
+                        Enviada el ${formatDateShort(ultima.fechaSolicitud)}
+                    </p>
+                `;
+            }
+        }
+
+        // Guardar perfil
+        document.getElementById('profile-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const updates = {
+                nombre: document.getElementById('nombre').value
+            };
+
+            if (usuario.rol === 'autor') {
+                updates.biografia = document.getElementById('biografia').value;
+            }
+
+            auth.updateCurrentUser(updates);
+            notify.success('Perfil actualizado');
+        });
+
+        // Solicitar ser autor
+        function solicitarSerAutor() {
+            showModal('Solicitar ser Autor', `
+                <form id="solicitud-form">
+                    <div class="form-group">
+                        <label for="motivacion">¿Por qué quieres publicar en Lumen?</label>
+                        <textarea id="motivacion" required minlength="50"></textarea>
+                        <span class="form-help">Mínimo 50 caracteres</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="experiencia">Cuéntanos sobre tu experiencia escribiendo</label>
+                        <textarea id="experiencia" required></textarea>
+                    </div>
+                </form>
+            `, () => {
+                const motivacion = document.getElementById('motivacion').value;
+                const experiencia = document.getElementById('experiencia').value;
+
+                if (motivacion.length < 50) {
+                    notify.error('La motivación debe tener al menos 50 caracteres');
+                    return;
+                }
+
+                const solicitud = {
+                    usuarioId: usuario.id,
+                    motivacion: motivacion,
+                    experiencia: experiencia,
+                    estado: 'pendiente',
+                    fechaSolicitud: new Date().toISOString(),
+                    moderadorId: null
+                };
+
+                db.create('solicitudesAutor', solicitud);
+
+                // Notificar a moderadores
+                const moderadores = db.getAll('usuarios').filter(u => u.rol === 'moderador' || u.rol === 'admin');
+                moderadores.forEach(mod => {
+                    crearNotificacion(
+                        mod.id,
+                        'nueva_solicitud',
+                        `Nueva solicitud de autor de ${usuario.nombre}`
+                    );
+                });
+
+                notify.success('¡Solicitud enviada! Te notificaremos cuando sea revisada.');
+                setTimeout(() => location.reload(), 2000);
+            });
+        }
+    </script>
+
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .profile-section {
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.5) 0%, rgba(0, 0, 0, 0.3) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .profile-section h3 {
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            color: var(--color-white);
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</body>
+
+</html>

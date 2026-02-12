@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo"><span class="L">L</span>umen.</h1>
+            </a>
+            <nav class="nav"></nav>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <h2 class="section-title">Panel de Administración</h2>
+
+        <!-- Estadísticas Generales -->
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <span class="stat-label">Total Usuarios</span>
+                <span class="stat-value" id="stat-usuarios">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Libros Publicados</span>
+                <span class="stat-value" id="stat-libros">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Ventas Totales</span>
+                <span class="stat-value" id="stat-ventas">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Ingresos</span>
+                <span class="stat-value" id="stat-ingresos">$0</span>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="charts-container">
+            <div class="chart-card">
+                <h3>Ventas por Categoría</h3>
+                <div class="bar-chart" id="sales-chart"></div>
+            </div>
+
+            <div class="chart-card">
+                <h3>Distribución de Usuarios</h3>
+                <div class="pie-chart" id="users-chart">
+                    <div class="pie-legend" id="users-legend"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" data-tab="categorias">Categorías</button>
+            <button class="admin-tab" data-tab="usuarios">Usuarios</button>
+            <button class="admin-tab" data-tab="descuentos">Descuentos</button>
+            <button class="admin-tab" data-tab="ventas">Reportes de Ventas</button>
+        </div>
+
+        <!-- Tab: Categorías -->
+        <div id="tab-categorias" class="admin-tab-content active">
+            <div style="margin: 2rem 0;">
+                <button class="btn btn-primary" onclick="nuevaCategoria()">+ Nueva Categoría</button>
+            </div>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Libros</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categorias-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab: Usuarios -->
+        <div id="tab-usuarios" class="admin-tab-content">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usuarios-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab: Descuentos -->
+        <div id="tab-descuentos" class="admin-tab-content">
+            <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 2rem;">
+                Configura descuentos por libro. Los descuentos se muestran automáticamente en el catálogo.
+            </p>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Libro</th>
+                            <th>Categoría</th>
+                            <th>Precio Original</th>
+                            <th>Descuento (%)</th>
+                            <th>Precio Final</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="descuentos-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab: Ventas -->
+        <div id="tab-ventas" class="admin-tab-content">
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Libro</th>
+                            <th>Precio</th>
+                            <th>Factura</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ventas-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        auth.requireAuth('admin');
+
+        // Calcular estadísticas
+        const usuarios = db.getAll('usuarios');
+        const libros = db.getAll('libros').filter(l => l.estado === 'publicado');
+        const compras = db.getAll('compras');
+        const totalIngresos = compras.reduce((sum, c) => sum + c.precio, 0);
+
+        document.getElementById('stat-usuarios').textContent = usuarios.length;
+        document.getElementById('stat-libros').textContent = libros.length;
+        document.getElementById('stat-ventas').textContent = compras.length;
+        document.getElementById('stat-ingresos').textContent = formatPrice(totalIngresos);
+
+        // Tab switching
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+            });
+        });
+
+        // Renderizar gráficos
+        function renderCharts() {
+            // Gráfico de ventas por categoría
+            const salesByCategory = {};
+            const categorias = db.getAll('categorias');
+
+            categorias.forEach(cat => {
+                const librosEnCat = libros.filter(l => l.categoria === cat.nombre);
+                const ventasEnCat = librosEnCat.reduce((sum, libro) => sum + (libro.ventas || 0), 0);
+                salesByCategory[cat.nombre] = ventasEnCat;
+            });
+
+            const maxSales = Math.max(...Object.values(salesByCategory), 1);
+            const salesChart = document.getElementById('sales-chart');
+
+            salesChart.innerHTML = Object.entries(salesByCategory).map(([categoria, ventas]) => {
+                const percentage = (ventas / maxSales) * 100;
+                return `
+                    <div class="bar-item">
+                        <div class="bar-label">${categoria}</div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: ${percentage}%"></div>
+                            <span class="bar-value">${ventas}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Gráfico de distribución de usuarios
+            const usersByRole = {
+                'Cliente': usuarios.filter(u => u.rol === 'cliente').length,
+                'Autor': usuarios.filter(u => u.rol === 'autor').length,
+                'Moderador': usuarios.filter(u => u.rol === 'moderador').length,
+                'Admin': usuarios.filter(u => u.rol === 'admin').length
+            };
+
+            const colors = {
+                'Cliente': '#3b82f6',
+                'Autor': '#8b5cf6',
+                'Moderador': '#f59e0b',
+                'Admin': '#ef4444'
+            };
+
+            const total = Object.values(usersByRole).reduce((a, b) => a + b, 0);
+            let currentAngle = 0;
+
+            const usersChart = document.getElementById('users-chart');
+            const usersLegend = document.getElementById('users-legend');
+
+            // Crear segmentos del gráfico circular
+            let segments = '';
+            Object.entries(usersByRole).forEach(([role, count]) => {
+                const percentage = (count / total) * 100;
+                const angle = (count / total) * 360;
+
+                segments += `
+                    <div class="pie-segment" style="
+                        --start-angle: ${currentAngle}deg;
+                        --angle: ${angle}deg;
+                        --color: ${colors[role]};
+                    "></div>
+                `;
+
+                currentAngle += angle;
+            });
+
+            usersChart.innerHTML = `<div class="pie-segments">${segments}</div>` + usersChart.innerHTML;
+
+            // Crear leyenda
+            usersLegend.innerHTML = Object.entries(usersByRole).map(([role, count]) => `
+                <div class="legend-item">
+                    <span class="legend-color" style="background: ${colors[role]}"></span>
+                    <span class="legend-label">${role}: ${count}</span>
+                </div>
+            `).join('');
+        }
+
+        // Renderizar categorías
+        function renderCategorias() {
+            const categorias = db.getAll('categorias');
+            const tbody = document.getElementById('categorias-tbody');
+
+            tbody.innerHTML = categorias.map(cat => {
+                const librosEnCat = libros.filter(l => l.categoria === cat.nombre).length;
+                return `
+                    <tr>
+                        <td>${cat.nombre}</td>
+                        <td>${cat.descripcion}</td>
+                        <td>${librosEnCat}</td>
+                        <td>
+                            <button class="btn btn-small btn-secondary" onclick="editarCategoria('${cat.id}')">Editar</button>
+                            <button class="btn btn-small btn-danger" onclick="eliminarCategoria('${cat.id}')">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Renderizar usuarios
+        function renderUsuarios() {
+            const tbody = document.getElementById('usuarios-tbody');
+
+            tbody.innerHTML = usuarios.map(u => {
+                const rolBadge = u.rol === 'admin' ? 'badge-danger' :
+                    u.rol === 'moderador' ? 'badge-warning' :
+                        u.rol === 'autor' ? 'badge-info' : 'badge-success';
+                const estadoBadge = u.estado === 'activo' ? 'badge-success' : 'badge-danger';
+
+                return `
+                    <tr>
+                        <td>${u.nombre}</td>
+                        <td>${u.email}</td>
+                        <td><span class="badge ${rolBadge}">${u.rol}</span></td>
+                        <td><span class="badge ${estadoBadge}">${u.estado}</span></td>
+                        <td>
+                            <button class="btn btn-small btn-secondary" onclick="cambiarRol('${u.id}')">Cambiar Rol</button>
+                            <button class="btn btn-small ${u.estado === 'activo' ? 'btn-danger' : 'btn-primary'}" 
+                                    onclick="toggleEstado('${u.id}')">
+                                ${u.estado === 'activo' ? 'Bloquear' : 'Activar'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Renderizar ventas
+        function renderVentas() {
+            const tbody = document.getElementById('ventas-tbody');
+
+            tbody.innerHTML = compras.map(c => {
+                const cliente = db.getById('usuarios', c.clienteId);
+                const libro = db.getById('libros', c.libroId);
+
+                return `
+                    <tr>
+                        <td>${formatDateShort(c.fechaCompra)}</td>
+                        <td>${cliente.nombre}</td>
+                        <td>${libro.titulo}</td>
+                        <td>${formatPrice(c.precio)}</td>
+                        <td><button class="btn btn-small btn-secondary" onclick="verFacturaAdmin('${c.id}')">Ver</button></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Funciones de categorías
+        function nuevaCategoria() {
+            const nombre = prompt('Nombre de la categoría:');
+            if (!nombre) return;
+            const descripcion = prompt('Descripción:');
+
+            db.create('categorias', {
+                nombre: nombre,
+                descripcion: descripcion || ''
+            });
+
+            notify.success('Categoría creada');
+            renderCategorias();
+        }
+
+        function editarCategoria(id) {
+            const cat = db.getById('categorias', id);
+            const nuevoNombre = prompt('Nuevo nombre:', cat.nombre);
+            if (!nuevoNombre) return;
+            const nuevaDesc = prompt('Nueva descripción:', cat.descripcion);
+
+            db.update('categorias', id, {
+                nombre: nuevoNombre,
+                descripcion: nuevaDesc || cat.descripcion
+            });
+
+            notify.success('Categoría actualizada');
+            renderCategorias();
+        }
+
+        function eliminarCategoria(id) {
+            confirm('¿Eliminar esta categoría?', () => {
+                db.delete('categorias', id);
+                notify.success('Categoría eliminada');
+                renderCategorias();
+            });
+        }
+
+        // Funciones de usuarios
+        function cambiarRol(userId) {
+            const usuario = db.getById('usuarios', userId);
+            const nuevoRol = prompt(`Nuevo rol para ${usuario.nombre}:\n- cliente\n- autor\n- moderador\n- admin`, usuario.rol);
+
+            if (!nuevoRol || !['cliente', 'autor', 'moderador', 'admin'].includes(nuevoRol)) {
+                notify.error('Rol inválido');
+                return;
+            }
+
+            db.update('usuarios', userId, { rol: nuevoRol });
+            notify.success('Rol actualizado');
+            renderUsuarios();
+        }
+
+        function toggleEstado(userId) {
+            const usuario = db.getById('usuarios', userId);
+            const nuevoEstado = usuario.estado === 'activo' ? 'bloqueado' : 'activo';
+
+            db.update('usuarios', userId, { estado: nuevoEstado });
+            notify.success(`Usuario ${nuevoEstado}`);
+            renderUsuarios();
+        }
+
+        function verFacturaAdmin(compraId) {
+            const compra = db.getById('compras', compraId);
+            const factura = generarFactura(compra);
+
+            showModal('Factura', `
+                <div class="factura">
+                    <h4>Factura #${factura.numero}</h4>
+                    <p><strong>Fecha:</strong> ${factura.fecha}</p>
+                    <hr>
+                    <h5>Cliente</h5>
+                    <p>${factura.cliente.nombre}<br>${factura.cliente.email}</p>
+                    <hr>
+                    <h5>Producto</h5>
+                    <p>${factura.libro.titulo}</p>
+                    <hr>
+                    <h5>Total</h5>
+                    <p style="font-size: 1.5rem; font-weight: bold;">${formatPrice(factura.total)}</p>
+                </div>
+            `);
+        }
+
+        // Renderizar descuentos
+        function renderDescuentos() {
+            const tbody = document.getElementById('descuentos-tbody');
+
+            tbody.innerHTML = libros.map(libro => {
+                const descuento = libro.descuento || 0;
+                const precioFinal = calcularPrecioFinal(libro);
+                const tieneDescuento = descuento > 0;
+
+                return `
+                    <tr>
+                        <td>${libro.titulo}</td>
+                        <td>${libro.categoria}</td>
+                        <td>${formatPrice(libro.precio)}</td>
+                        <td>
+                            <span class="badge ${tieneDescuento ? 'badge-success' : 'badge-info'}">
+                                ${descuento}%
+                            </span>
+                        </td>
+                        <td>
+                            <strong style="color: ${tieneDescuento ? '#10b981' : 'var(--color-white)'}">
+                                ${formatPrice(precioFinal)}
+                            </strong>
+                        </td>
+                        <td>
+                            <button class="btn btn-small btn-primary" onclick="editarDescuento('${libro.id}')">
+                                ${tieneDescuento ? 'Editar' : 'Agregar'}
+                            </button>
+                            ${tieneDescuento ? `
+                                <button class="btn btn-small btn-danger" onclick="quitarDescuento('${libro.id}')">Quitar</button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Funciones de descuentos
+        function editarDescuento(libroId) {
+            const libro = db.getById('libros', libroId);
+            const descuentoActual = libro.descuento || 0;
+
+            const nuevoDescuento = prompt(
+                `Descuento para "${libro.titulo}"\nPrecio original: ${formatPrice(libro.precio)}\n\nIngresa el porcentaje de descuento (0-100):`,
+                descuentoActual
+            );
+
+            if (nuevoDescuento === null) return;
+
+            const descuentoNum = parseInt(nuevoDescuento);
+
+            if (isNaN(descuentoNum) || descuentoNum < 0 || descuentoNum > 100) {
+                notify.error('Descuento inválido. Debe ser un número entre 0 y 100');
+                return;
+            }
+
+            db.update('libros', libroId, { descuento: descuentoNum });
+
+            // Recargar libros desde la base de datos
+            libros.length = 0;
+            libros.push(...db.getAll('libros').filter(l => l.estado === 'publicado'));
+
+            const precioFinal = libro.precio - (libro.precio * descuentoNum / 100);
+            notify.success(`Descuento actualizado. Nuevo precio: ${formatPrice(precioFinal)}`);
+            renderDescuentos();
+        }
+
+        function quitarDescuento(libroId) {
+            confirm('¿Quitar el descuento de este libro?', () => {
+                db.update('libros', libroId, { descuento: 0 });
+
+                // Recargar libros desde la base de datos
+                libros.length = 0;
+                libros.push(...db.getAll('libros').filter(l => l.estado === 'publicado'));
+
+                notify.success('Descuento eliminado');
+                renderDescuentos();
+            });
+        }
+
+        // Inicializar
+        renderCharts();
+        renderCategorias();
+        renderUsuarios();
+        renderDescuentos();
+        renderVentas();
+    </script>
+
+    <style>
+        /* Charts Container */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .chart-card {
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.5) 0%, rgba(0, 0, 0, 0.3) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+        }
+
+        .chart-card h3 {
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            color: var(--color-white);
+            margin-bottom: 2rem;
+        }
+
+        /* Bar Chart */
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .bar-item {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .bar-label {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: right;
+        }
+
+        .bar-container {
+            position: relative;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+            transition: width 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 0.5rem;
+        }
+
+        .bar-value {
+            position: absolute;
+            right: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            z-index: 2;
+        }
+
+        /* Pie Chart */
+        .pie-chart {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .pie-segments {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            position: relative;
+            background: conic-gradient(#3b82f6 0deg 90deg,
+                    #8b5cf6 90deg 180deg,
+                    #f59e0b 180deg 270deg,
+                    #ef4444 270deg 360deg);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+
+        .pie-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 2px;
+        }
+
+        .legend-label {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        @media (max-width: 1024px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .admin-tabs {
+            display: flex;
+            gap: 0;
+            margin: 3rem 0 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .admin-tab {
+            flex: 1;
+            padding: 1rem;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+
+        .admin-tab.active {
+            color: var(--color-white);
+            border-bottom-color: var(--color-white);
+        }
+
+        .admin-tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .admin-tab-content.active {
+            display: block;
+        }
+    </style>
+</body>
+
+</html>

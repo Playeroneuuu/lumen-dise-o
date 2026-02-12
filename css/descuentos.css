@@ -1,0 +1,83 @@
+/* Discount Badge on Book Cover */
+.book-cover {
+    position: relative;
+}
+
+.discount-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #10b981;
+    color: #000;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    z-index: 10;
+}
+
+.discount-badge-large {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    background: #10b981;
+    color: #000;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    z-index: 10;
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Price Display with Discount */
+.book-price-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.book-detail-cover {
+    position: relative;
+}
+
+.book-detail-price-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.book-detail-price-original {
+    font-size: 1.25rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: line-through;
+    font-family: var(--font-serif);
+}
+
+.discount-savings {
+    font-size: 0.875rem;
+    color: #10b981;
+    font-weight: 600;
+}
+
+.book-price-original {
+    font-size: 0.875rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: line-through;
+    font-family: var(--font-sans);
+}
+
+.book-price {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #10b981;
+}
+
+.book-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+}

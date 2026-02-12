@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Explora todos los libros de Lumen - Ficción, ensayo, poesía y más">
+    <title>Catálogo - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="stylesheet" href="../css/descuentos.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo">
+                    <span class="L">L</span>umen.
+                </h1>
+            </a>
+            <nav class="nav">
+                <!-- Se actualiza dinámicamente con auth.js -->
+            </nav>
+            <button class="menu-mobile" aria-label="Menú">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <!-- Barra de búsqueda y filtros -->
+        <div class="catalog-header">
+            <h2 class="section-title">Catálogo de Libros</h2>
+
+            <div class="catalog-controls">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Buscar por título o autor..."
+                        class="search-input">
+                </div>
+
+                <div class="filter-box">
+                    <label for="category-filter">Categoría:</label>
+                    <select id="category-filter" class="filter-select">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid de libros -->
+        <div id="books-grid" class="books-grid">
+            <!-- Se llena dinámicamente -->
+        </div>
+
+        <!-- Mensaje si no hay resultados -->
+        <div id="no-results" class="no-results" style="display: none;">
+            <p>No se encontraron libros que coincidan con tu búsqueda.</p>
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        let todosLosLibros = [];
+        let librosActuales = [];
+
+        // Cargar categorías en el filtro
+        function cargarCategorias() {
+            const categorias = db.getAll('categorias');
+            const select = document.getElementById('category-filter');
+
+            categorias.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.nombre;
+                option.textContent = cat.nombre;
+                select.appendChild(option);
+            });
+        }
+
+        // Renderizar libros
+        function renderizarLibros(libros) {
+            const grid = document.getElementById('books-grid');
+            const noResults = document.getElementById('no-results');
+
+            if (libros.length === 0) {
+                grid.innerHTML = '';
+                noResults.style.display = 'block';
+                return;
+            }
+
+            noResults.style.display = 'none';
+
+            grid.innerHTML = libros.map(libro => {
+                const autor = db.getById('usuarios', libro.autorId);
+                const precioFinal = calcularPrecioFinal(libro);
+                const tieneDescuento = libro.descuento && libro.descuento > 0;
+
+                return `
+                    <article class="book-card">
+                        <div class="book-cover">
+                            ${tieneDescuento ? `<div class="discount-badge">${libro.descuento}% OFF</div>` : ''}
+                            <div class="book-cover-placeholder">${libro.titulo.charAt(0)}</div>
+                        </div>
+                        <div class="book-info">
+                            <span class="book-category">${libro.categoria}</span>
+                            <h3 class="book-title">${libro.titulo}</h3>
+                            <p class="book-author">Por ${autor ? autor.nombre : 'Autor Desconocido'}</p>
+                            <p class="book-excerpt">${truncate(libro.sinopsis, 120)}</p>
+                            <div class="book-footer">
+                                <div class="book-price-container">
+                                    ${tieneDescuento ? `
+                                        <span class="book-price-original">${formatPrice(libro.precio)}</span>
+                                        <span class="book-price">${formatPrice(precioFinal)}</span>
+                                    ` : `
+                                        <span class="book-price">${formatPrice(libro.precio)}</span>
+                                    `}
+                                </div>
+                                <a href="detalle-libro.html?id=${libro.id}" class="btn btn-small btn-primary">Ver detalles</a>
+                            </div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // Filtrar libros
+        function filtrarLibros() {
+            const searchQuery = document.getElementById('search-input').value.toLowerCase();
+            const categoria = document.getElementById('category-filter').value;
+
+            librosActuales = todosLosLibros.filter(libro => {
+                const matchSearch = !searchQuery ||
+                    libro.titulo.toLowerCase().includes(searchQuery) ||
+                    libro.sinopsis.toLowerCase().includes(searchQuery);
+
+                const matchCategoria = !categoria || libro.categoria === categoria;
+
+                return matchSearch && matchCategoria;
+            });
+
+            renderizarLibros(librosActuales);
+        }
+
+        // Debounce para búsqueda
+        const debouncedFilter = debounce(filtrarLibros, 300);
+
+        // Event listeners
+        document.getElementById('search-input').addEventListener('input', debouncedFilter);
+        document.getElementById('category-filter').addEventListener('change', filtrarLibros);
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarCategorias();
+            todosLosLibros = db.getAll('libros').filter(l => l.estado === 'publicado');
+            librosActuales = [...todosLosLibros];
+            renderizarLibros(librosActuales);
+        });
+    </script>
+
+    <style>
+        .catalog-header {
+            margin-bottom: 3rem;
+        }
+
+        .catalog-controls {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .search-input,
+        .filter-select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--color-white);
+            font-size: 0.875rem;
+        }
+
+        .search-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .filter-box {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-box label {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.875rem;
+            white-space: nowrap;
+        }
+
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .book-card {
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.5) 0%, rgba(0, 0, 0, 0.3) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .book-card:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .book-cover {
+            aspect-ratio: 3/4;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .book-cover-placeholder {
+            font-family: var(--font-serif);
+            font-size: 6rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.1);
+        }
+
+        .book-info {
+            padding: 1.5rem;
+        }
+
+        .book-category {
+            display: inline-block;
+            font-size: 0.625rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 0.5rem;
+        }
+
+        .book-title {
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-white);
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+
+        .book-author {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 1rem;
+        }
+
+        .book-excerpt {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .book-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .book-price {
+            font-family: var(--font-serif);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--color-white);
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        @media (max-width: 768px) {
+            .catalog-controls {
+                grid-template-columns: 1fr;
+            }
+
+            .books-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+
+</html>

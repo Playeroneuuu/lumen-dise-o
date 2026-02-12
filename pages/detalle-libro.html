@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="stylesheet" href="../css/descuentos.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo">
+                    <span class="L">L</span>umen.
+                </h1>
+            </a>
+            <nav class="nav">
+                <!-- Se actualiza dinámicamente con auth.js -->
+            </nav>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <div id="book-detail" class="book-detail">
+            <!-- Se llena dinámicamente -->
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        // Obtener ID del libro de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const libroId = urlParams.get('id');
+
+        if (!libroId) {
+            window.location.href = 'catalogo.html';
+        }
+
+        const libro = db.getById('libros', libroId);
+        if (!libro) {
+            notify.error('Libro no encontrado');
+            setTimeout(() => window.location.href = 'catalogo.html', 2000);
+        }
+
+        const autor = db.getById('usuarios', libro.autorId);
+
+        // Verificar si el usuario ya compró este libro
+        function yaComprado() {
+            if (!auth.isLoggedIn()) return false;
+            const usuario = auth.getCurrentUser();
+            const compras = db.getComprasDeCliente(usuario.id);
+            return compras.some(c => c.libroId === libroId);
+        }
+
+        // Comprar libro
+        function comprarLibro() {
+            if (!auth.isLoggedIn()) {
+                notify.warning('Debes iniciar sesión para comprar');
+                setTimeout(() => {
+                    window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+                }, 1500);
+                return;
+            }
+
+            const usuario = auth.getCurrentUser();
+
+            // Verificar si ya lo compró
+            if (yaComprado()) {
+                notify.info('Ya tienes este libro en tu biblioteca');
+                setTimeout(() => window.location.href = 'mis-libros.html', 1500);
+                return;
+            }
+
+            showLoading('Procesando compra...', 'Generando factura y agregando a tu biblioteca');
+
+            setTimeout(() => {
+                // Calcular precio final con descuento
+                const precioFinal = calcularPrecioFinal(libro);
+
+                // Crear compra
+                const compra = {
+                    clienteId: usuario.id,
+                    libroId: libro.id,
+                    precio: precioFinal,
+                    fechaCompra: new Date().toISOString(),
+                    facturaUrl: '#factura-' + Date.now()
+                };
+
+                db.create('compras', compra);
+
+                // Incrementar ventas del libro
+                db.update('libros', libro.id, { ventas: (libro.ventas || 0) + 1 });
+
+                // Crear notificación para el cliente
+                crearNotificacion(
+                    usuario.id,
+                    'compra',
+                    `Has comprado "${libro.titulo}" exitosamente`
+                );
+
+                // Crear notificación para el autor
+                crearNotificacion(
+                    autor.id,
+                    'venta',
+                    `¡Tu libro "${libro.titulo}" ha sido vendido!`
+                );
+
+                hideLoading();
+                notify.success('¡Compra exitosa! Redirigiendo a tu biblioteca...');
+                showLoading('Preparando tu biblioteca...', 'Redirigiendo');
+                setTimeout(() => window.location.href = 'mis-libros.html', 1500);
+            }, 1200);
+        }
+
+        // Renderizar detalle
+        const precioFinal = calcularPrecioFinal(libro);
+        const tieneDescuento = libro.descuento && libro.descuento > 0;
+
+        document.getElementById('book-detail').innerHTML = `
+            <div class="book-detail-grid">
+                <div class="book-detail-cover">
+                    ${tieneDescuento ? `<div class="discount-badge-large">${libro.descuento}% OFF</div>` : ''}
+                    <div class="book-cover-large">${libro.titulo.charAt(0)}</div>
+                </div>
+                
+                <div class="book-detail-info">
+                    <div class="breadcrumb">
+                        <a href="catalogo.html">Catálogo</a> / <span class="book-category">${libro.categoria}</span>
+                    </div>
+                    
+                    <h1 class="book-detail-title">${libro.titulo}</h1>
+                    
+                    <div class="book-detail-meta">
+                        <a href="perfil-autor.html?id=${autor.id}" class="book-detail-author">
+                            Por ${autor.nombre}
+                        </a>
+                        <span class="book-detail-date">Publicado: ${formatDateShort(libro.fechaPublicacion)}</span>
+                    </div>
+                    
+                    <div class="book-detail-price-box">
+                        <div class="book-detail-price-container">
+                            ${tieneDescuento ? `
+                                <div class="discount-info">
+                                    <span class="badge badge-success" style="margin-bottom: 0.5rem;">¡${libro.descuento}% de descuento!</span>
+                                </div>
+                                <span class="book-detail-price-original">${formatPrice(libro.precio)}</span>
+                                <span class="book-detail-price">${formatPrice(precioFinal)}</span>
+                                <span class="discount-savings">Ahorras ${formatPrice(libro.precio - precioFinal)}</span>
+                            ` : `
+                                <span class="book-detail-price">${formatPrice(libro.precio)}</span>
+                            `}
+                        </div>
+                        ${yaComprado() ?
+                `<a href="mis-libros.html" class="btn btn-secondary">Ya lo tienes - Ver en biblioteca</a>` :
+                `<button onclick="comprarLibro()" class="btn btn-primary">Comprar ahora</button>`
+            }
+                    </div>
+                    
+                    <div class="book-detail-section">
+                        <h3>Sinopsis</h3>
+                        <p>${libro.sinopsis}</p>
+                    </div>
+                    
+                    <div class="book-detail-stats">
+                        <div class="stat">
+                            <span class="stat-label">Categoría</span>
+                            <span class="stat-value">${libro.categoria}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Ventas</span>
+                            <span class="stat-value">${libro.ventas || 0}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="author-section">
+                <h3>Sobre el autor</h3>
+                <div class="author-info">
+                    <div class="author-avatar">${autor.nombre.charAt(0)}</div>
+                    <div>
+                        <h4>${autor.nombre}</h4>
+                        <p>${autor.biografia || 'Autor de Lumen Editorial'}</p>
+                        <a href="perfil-autor.html?id=${autor.id}" class="btn btn-small btn-secondary">Ver perfil completo</a>
+                    </div>
+                </div>
+            </div>
+        `;
+    </script>
+
+    <style>
+        .book-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 4rem;
+            margin-bottom: 4rem;
+        }
+
+        .book-cover-large {
+            aspect-ratio: 3/4;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-serif);
+            font-size: 10rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.1);
+        }
+
+        .breadcrumb {
+            font-size: 0.875rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 1rem;
+        }
+
+        .breadcrumb a {
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--color-white);
+        }
+
+        .book-detail-title {
+            font-family: var(--font-serif);
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--color-white);
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .book-detail-meta {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .book-detail-author {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .book-detail-author:hover {
+            color: var(--color-white);
+        }
+
+        .book-detail-date {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.875rem;
+        }
+
+        .book-detail-price-box {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 3rem;
+        }
+
+        .book-detail-price {
+            font-family: var(--font-serif);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-white);
+        }
+
+        .book-detail-section {
+            margin-bottom: 3rem;
+        }
+
+        .book-detail-section h3 {
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--color-white);
+            margin-bottom: 1rem;
+        }
+
+        .book-detail-section p {
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.8;
+            font-size: 1.125rem;
+        }
+
+        .book-detail-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .stat {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            display: block;
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--color-white);
+        }
+
+        .author-section {
+            padding: 3rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .author-section h3 {
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--color-white);
+            margin-bottom: 2rem;
+        }
+
+        .author-info {
+            display: flex;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .author-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-serif);
+            font-size: 2rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.3);
+            flex-shrink: 0;
+        }
+
+        .author-info h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--color-white);
+            margin-bottom: 0.5rem;
+        }
+
+        .author-info p {
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .book-detail-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .book-detail-title {
+                font-size: 2rem;
+            }
+
+            .book-detail-price-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .book-detail-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</body>
+
+</html>

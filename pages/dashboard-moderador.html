@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Moderación - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo"><span class="L">L</span>umen.</h1>
+            </a>
+            <nav class="nav"></nav>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <h2 class="section-title">Panel de Moderación</h2>
+
+        <!-- Estadísticas -->
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <span class="stat-label">Solicitudes Pendientes</span>
+                <span class="stat-value" id="stat-solicitudes">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Manuscritos Pendientes</span>
+                <span class="stat-value" id="stat-manuscritos">0</span>
+            </div>
+        </div>
+
+        <!-- Solicitudes de Autor -->
+        <h3 style="margin: 3rem 0 1rem;">Solicitudes para ser Autor</h3>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Motivación</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="solicitudes-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- Manuscritos Pendientes -->
+        <h3 style="margin: 3rem 0 1rem;">Manuscritos Pendientes de Revisión</h3>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Autor</th>
+                        <th>Categoría</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="manuscritos-tbody"></tbody>
+            </table>
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        auth.requireAuth(['moderador', 'admin']);
+
+        const solicitudes = db.getAll('solicitudesAutor').filter(s => s.estado === 'pendiente');
+        const manuscritos = db.getAll('manuscritos').filter(m => m.estado === 'pendiente');
+
+        document.getElementById('stat-solicitudes').textContent = solicitudes.length;
+        document.getElementById('stat-manuscritos').textContent = manuscritos.length;
+
+        // Renderizar solicitudes
+        const solicitudesTbody = document.getElementById('solicitudes-tbody');
+        if (solicitudes.length === 0) {
+            solicitudesTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:rgba(255,255,255,0.5)">No hay solicitudes pendientes</td></tr>';
+        } else {
+            solicitudesTbody.innerHTML = solicitudes.map(s => {
+                const usuario = db.getById('usuarios', s.usuarioId);
+                return `
+                    <tr>
+                        <td>${usuario.nombre}<br><small style="color:rgba(255,255,255,0.5)">${usuario.email}</small></td>
+                        <td>${truncate(s.motivacion, 80)}</td>
+                        <td>${formatDateShort(s.fechaSolicitud)}</td>
+                        <td>
+                            <button class="btn btn-small btn-primary" onclick="aprobarSolicitud('${s.id}')">Aprobar</button>
+                            <button class="btn btn-small btn-danger" onclick="rechazarSolicitud('${s.id}')">Rechazar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Renderizar manuscritos
+        const manuscritosTbody = document.getElementById('manuscritos-tbody');
+        if (manuscritos.length === 0) {
+            manuscritosTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:rgba(255,255,255,0.5)">No hay manuscritos pendientes</td></tr>';
+        } else {
+            manuscritosTbody.innerHTML = manuscritos.map(m => {
+                const autor = db.getById('usuarios', m.autorId);
+                return `
+                    <tr>
+                        <td>${m.titulo}</td>
+                        <td>${autor.nombre}</td>
+                        <td>${m.categoria}</td>
+                        <td>${formatDateShort(m.fechaEnvio)}</td>
+                        <td>
+                            <button class="btn btn-small btn-primary" onclick="aprobarManuscrito('${m.id}')">Aprobar</button>
+                            <button class="btn btn-small btn-danger" onclick="rechazarManuscrito('${m.id}')">Rechazar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Aprobar solicitud de autor
+        function aprobarSolicitud(solicitudId) {
+            confirm('¿Aprobar esta solicitud y convertir al usuario en autor?', () => {
+                const solicitud = db.getById('solicitudesAutor', solicitudId);
+                const usuario = db.getById('usuarios', solicitud.usuarioId);
+
+                // Cambiar rol a autor
+                db.update('usuarios', usuario.id, { rol: 'autor' });
+
+                // Actualizar solicitud
+                db.update('solicitudesAutor', solicitudId, {
+                    estado: 'aprobada',
+                    moderadorId: auth.getCurrentUser().id
+                });
+
+                // Notificar al usuario
+                crearNotificacion(
+                    usuario.id,
+                    'solicitud_aprobada',
+                    '¡Tu solicitud para ser autor ha sido aprobada!'
+                );
+
+                notify.success('Solicitud aprobada');
+                location.reload();
+            });
+        }
+
+        // Rechazar solicitud
+        function rechazarSolicitud(solicitudId) {
+            confirm('¿Rechazar esta solicitud?', () => {
+                const solicitud = db.getById('solicitudesAutor', solicitudId);
+
+                db.update('solicitudesAutor', solicitudId, {
+                    estado: 'rechazada',
+                    moderadorId: auth.getCurrentUser().id
+                });
+
+                crearNotificacion(
+                    solicitud.usuarioId,
+                    'solicitud_rechazada',
+                    'Tu solicitud para ser autor ha sido rechazada'
+                );
+
+                notify.success('Solicitud rechazada');
+                location.reload();
+            });
+        }
+
+        // Aprobar manuscrito
+        function aprobarManuscrito(manuscritoId) {
+            confirm('¿Aprobar y publicar este manuscrito?', () => {
+                const manuscrito = db.getById('manuscritos', manuscritoId);
+
+                // Crear libro publicado
+                const libro = {
+                    titulo: manuscrito.titulo,
+                    sinopsis: manuscrito.sinopsis,
+                    precio: 299, // Precio por defecto
+                    categoria: manuscrito.categoria,
+                    autorId: manuscrito.autorId,
+                    portada: '../img/libro-default.jpg',
+                    archivoUrl: manuscrito.archivoUrl,
+                    estado: 'publicado',
+                    fechaPublicacion: new Date().toISOString(),
+                    ventas: 0
+                };
+
+                db.create('libros', libro);
+
+                // Actualizar manuscrito
+                db.update('manuscritos', manuscritoId, {
+                    estado: 'aprobado',
+                    moderadorId: auth.getCurrentUser().id
+                });
+
+                // Notificar al autor
+                crearNotificacion(
+                    manuscrito.autorId,
+                    'manuscrito_aprobado',
+                    `¡Tu libro "${manuscrito.titulo}" ha sido publicado!`
+                );
+
+                notify.success('Manuscrito aprobado y publicado');
+                location.reload();
+            });
+        }
+
+        // Rechazar manuscrito
+        function rechazarManuscrito(manuscritoId) {
+            const motivo = prompt('Ingresa el motivo del rechazo:');
+            if (!motivo) return;
+
+            const manuscrito = db.getById('manuscritos', manuscritoId);
+
+            db.update('manuscritos', manuscritoId, {
+                estado: 'rechazado',
+                motivoRechazo: motivo,
+                moderadorId: auth.getCurrentUser().id
+            });
+
+            crearNotificacion(
+                manuscrito.autorId,
+                'manuscrito_rechazado',
+                `Tu manuscrito "${manuscrito.titulo}" fue rechazado. Revisa el motivo en tu panel.`
+            );
+
+            notify.success('Manuscrito rechazado');
+            location.reload();
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subir Manuscrito - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo"><span class="L">L</span>umen.</h1>
+            </a>
+            <nav class="nav"></nav>
+        </div>
+    </header>
+    <br><br>
+
+    <main class="main">
+        <div class="auth-box" style="max-width: 600px; margin: 0 auto;">
+            <h2 class="auth-title">Subir Manuscrito</h2>
+            <p class="auth-subtitle">Completa el formulario para enviar tu obra a revisión</p>
+
+            <form id="manuscrito-form">
+                <div class="form-group">
+                    <label for="titulo">Título *</label>
+                    <input type="text" id="titulo" required placeholder="Título de tu obra">
+                </div>
+
+                <div class="form-group">
+                    <label for="categoria">Categoría *</label>
+                    <select id="categoria" required>
+                        <option value="">Selecciona una categoría</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="sinopsis">Sinopsis *</label>
+                    <textarea id="sinopsis" required placeholder="Describe brevemente tu obra (mínimo 100 caracteres)"
+                        minlength="100"></textarea>
+                    <span class="form-help">Describe tu obra de manera atractiva para los lectores</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="archivo">Archivo del manuscrito *</label>
+                    <input type="file" id="archivo" accept=".pdf,.epub,.doc,.docx" required>
+                    <span class="form-help">Formatos aceptados: PDF, EPUB, DOC, DOCX (máx. 10MB)</span>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">Enviar a Revisión</button>
+                <a href="dashboard-autor.html" class="btn btn-secondary btn-full" style="margin-top: 1rem;">Cancelar</a>
+            </form>
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        auth.requireAuth('autor');
+
+        // Cargar categorías
+        const categorias = db.getAll('categorias');
+        const select = document.getElementById('categoria');
+        categorias.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.nombre;
+            option.textContent = cat.nombre;
+            select.appendChild(option);
+        });
+
+        // Enviar manuscrito
+        document.getElementById('manuscrito-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const usuario = auth.getCurrentUser();
+            const titulo = document.getElementById('titulo').value;
+            const categoria = document.getElementById('categoria').value;
+            const sinopsis = document.getElementById('sinopsis').value;
+            const archivo = document.getElementById('archivo').files[0];
+
+            if (!archivo) {
+                notify.error('Debes seleccionar un archivo');
+                return;
+            }
+
+            showLoading('Subiendo manuscrito...', 'Esto puede tomar unos momentos');
+
+            setTimeout(() => {
+                // Simular subida de archivo
+                const manuscrito = {
+                    titulo: titulo,
+                    sinopsis: sinopsis,
+                    categoria: categoria,
+                    autorId: usuario.id,
+                    archivoUrl: '#archivo_' + Date.now() + '_' + archivo.name,
+                    estado: 'pendiente',
+                    fechaEnvio: new Date().toISOString(),
+                    motivoRechazo: null,
+                    moderadorId: null
+                };
+
+                db.create('manuscritos', manuscrito);
+
+                // Notificar a moderadores
+                const moderadores = db.getAll('usuarios').filter(u => u.rol === 'moderador');
+                moderadores.forEach(mod => {
+                    crearNotificacion(
+                        mod.id,
+                        'nuevo_manuscrito',
+                        `Nuevo manuscrito "${titulo}" pendiente de revisión`
+                    );
+                });
+
+                hideLoading();
+                notify.success('¡Manuscrito enviado exitosamente!');
+                showLoading('Volviendo a tu panel...', 'Redirigiendo');
+                setTimeout(() => {
+                    window.location.href = 'dashboard-autor.html';
+                }, 1500);
+            }, 1500);
+        });
+    </script>
+</body>
+
+</html>

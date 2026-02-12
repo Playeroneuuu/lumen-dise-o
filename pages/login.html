@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Inicia sesión o regístrate en Lumen Editorial">
+    <title>Iniciar Sesión - Lumen Editorial</title>
+    <link rel="stylesheet" href="../css/minimalista.css">
+    <link rel="stylesheet" href="../css/forms.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header" style="position: relative; background: #000;">
+        <div class="container">
+            <a href="index.html" class="logo-link">
+                <h1 class="logo">
+                    <span class="L">L</span>umen.
+                </h1>
+            </a>
+            <nav class="nav">
+                <a href="index.html" class="nav-link">Inicio</a>
+                <a href="catalogo.html" class="nav-link">Catálogo</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="auth-container">
+        <div class="auth-box">
+            <!-- Tabs -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Iniciar Sesión</button>
+                <button class="auth-tab" data-tab="register">Registrarse</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form active">
+                <h2 class="auth-title">Bienvenido de nuevo</h2>
+                <p class="auth-subtitle">Ingresa a tu cuenta de Lumen</p>
+
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" required placeholder="tu@email.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">Iniciar Sesión</button>
+
+                <div class="auth-demo">
+                    <p><strong>Cuentas de prueba:</strong></p>
+                    <small>Cliente: cliente@lumen.com / 12345</small><br>
+                    <small>Autor: autor@lumen.com / 12345</small><br>
+                    <small>Moderador: moderador@lumen.com / 12345</small><br>
+                    <small>Admin: admin@lumen.com / 12345</small>
+                </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form">
+                <h2 class="auth-title">Únete a Lumen</h2>
+                <p class="auth-subtitle">Crea tu cuenta y descubre grandes historias</p>
+
+                <div class="form-group">
+                    <label for="register-name">Nombre completo</label>
+                    <input type="text" id="register-name" required placeholder="Juan Pérez">
+                </div>
+
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" required placeholder="tu@email.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="register-password">Contraseña</label>
+                    <input type="password" id="register-password" required placeholder="••••••••" minlength="5">
+                </div>
+
+                <div class="form-group">
+                    <label for="register-password-confirm">Confirmar contraseña</label>
+                    <input type="password" id="register-password-confirm" required placeholder="••••••••">
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full">Crear Cuenta</button>
+            </form>
+        </div>
+    </main>
+
+    <script src="../js/database.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/utils.js"></script>
+    <script>
+        // Tab switching
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+
+                // Update tabs
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Update forms
+                document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+                document.getElementById(`${tabName}-form`).classList.add('active');
+            });
+        });
+
+        // Login form
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            showLoading('Iniciando sesión...', 'Verificando credenciales');
+
+            setTimeout(() => {
+                const result = auth.login(email, password);
+                hideLoading();
+
+                if (result.success) {
+                    notify.success('¡Bienvenido de nuevo!');
+                    showLoading('Preparando tu panel...', 'Redirigiendo');
+                    setTimeout(() => {
+                        // Redirigir según parámetro o dashboard
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const redirect = urlParams.get('redirect');
+                        if (redirect) {
+                            window.location.href = redirect;
+                        } else {
+                            auth.redirectToDashboard();
+                        }
+                    }, 1000);
+                } else {
+                    notify.error(result.message);
+                }
+            }, 800);
+        });
+
+        // Register form
+        document.getElementById('register-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const nombre = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const passwordConfirm = document.getElementById('register-password-confirm').value;
+
+            // Validaciones
+            if (!isValidEmail(email)) {
+                notify.error('Email inválido');
+                return;
+            }
+
+            if (password !== passwordConfirm) {
+                notify.error('Las contraseñas no coinciden');
+                return;
+            }
+
+            if (password.length < 5) {
+                notify.error('La contraseña debe tener al menos 5 caracteres');
+                return;
+            }
+
+            showLoading('Creando tu cuenta...', 'Un momento por favor');
+
+            setTimeout(() => {
+                const result = auth.register(nombre, email, password);
+                hideLoading();
+
+                if (result.success) {
+                    notify.success('¡Cuenta creada exitosamente!');
+                    showLoading('Preparando tu perfil...', 'Redirigiendo');
+                    setTimeout(() => {
+                        auth.redirectToDashboard();
+                    }, 1000);
+                } else {
+                    notify.error(result.message);
+                }
+            }, 800);
+        });
+
+        // Si ya está logueado, redirigir
+        if (auth.isLoggedIn()) {
+            auth.redirectToDashboard();
+        }
+    </script>
+</body>
+
+</html>
